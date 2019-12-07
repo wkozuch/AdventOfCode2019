@@ -1,0 +1,176 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Transactions;
+
+namespace AdventOfCode
+{
+    internal class Day7
+    {
+        static void Main(string[] args)
+        {
+            var fileText = File.ReadAllText(@"Datasets\day7.txt");
+            var intCode = fileText.Split(",").Select(int.Parse).ToArray();
+
+            var phases = new List<int>() { 5, 6, 7, 8, 9 };
+            var permuations = GetPermutations(phases, 5).ToList();
+            var results = new List<int>();
+            foreach (var phaseSettings in permuations)
+            {
+
+                var result = RunCode(phaseSettings.ToArray(), intCode);
+                results.Add(result);
+            }
+
+            Console.WriteLine($"Max:{results.Max()}");
+        }
+
+        private static int RunCode(int[] phaseSettings, int[] intCode)
+        {
+            var inputIndex = 0;
+            var inputConsumed = false;
+            var inputSettings = new int[] { phaseSettings[0], 0, phaseSettings[1], 0, phaseSettings[2], 0, phaseSettings[3], 0, phaseSettings[4], 0 };
+            var arg1 = 0;
+
+            foreach (var phase in phaseSettings)
+            {
+                for (var i = 0; i < intCode.Length; i++)
+                {
+                    var codeStr = ReverseInt(intCode[i]).ToString();
+                    var modeB = codeStr.Length > 3 ? int.Parse(codeStr[3].ToString()) : 0;
+                    var modeC = codeStr.Length > 2 ? int.Parse(codeStr[2].ToString()) : 0;
+                    var code = codeStr.Length > 1
+                        ? int.Parse(codeStr[1].ToString() + codeStr[0].ToString())
+                        : int.Parse(codeStr);
+
+                    if (code == 99) break;
+
+                    arg1 = modeC == 1 ? intCode[i + 1] : intCode[intCode[i + 1]];
+                    var arg2 = 0;
+                    var resultIx = intCode[i + 3];
+
+                    if (code == 1)
+                    {
+                        arg2 = modeB == 1 ? intCode[i + 2] : intCode[intCode[i + 2]];
+                        intCode[resultIx] = arg1 + arg2;
+                        i += 3;
+                    }
+                    else if (code == 2)
+                    {
+                        arg2 = modeB == 1 ? intCode[i + 2] : intCode[intCode[i + 2]];
+                        intCode[resultIx] = arg1 * arg2;
+                        i += 3;
+                    }
+                    else if (code == 3)
+                    {
+                        var index = intCode[i + 1];
+                        intCode[index] = inputSettings[inputIndex];
+                        Console.WriteLine(
+                            $"Phase: {phase}, Input ix: {inputIndex}, InputSettings: {inputSettings[inputIndex]}");
+                        if (!inputConsumed)
+                        {
+                            inputConsumed = true;
+                            inputIndex++;
+                        }
+
+                        i++;
+                    }
+                    else if (code == 4)
+                    {
+                        Console.WriteLine($"Output: {arg1}");
+                        if (inputIndex < inputSettings.Length - 1) inputSettings[inputIndex + 2] = arg1;
+                        i++;
+                    }
+                    else if (code == 5)
+                    {
+                        if (arg1 != 0)
+                        {
+                            arg2 = modeB == 1 ? intCode[i + 2] : intCode[intCode[i + 2]];
+                            i = arg2;
+                            i--;
+                        }
+                        else
+                        {
+                            i += 2;
+                        }
+                    }
+                    else if (code == 6)
+                    {
+                        if (arg1 == 0)
+                        {
+                            arg2 = modeB == 1 ? intCode[i + 2] : intCode[intCode[i + 2]];
+                            i = arg2;
+                            i--;
+                        }
+                        else
+                        {
+                            i += 2;
+                        }
+                    }
+                    else if (code == 7)
+                    {
+                        if (arg1 < arg2)
+                        {
+                            intCode[resultIx] = 1;
+                        }
+                        else
+                        {
+                            intCode[resultIx] = 0;
+                        }
+
+                        i += 3;
+                    }
+                    else if (code == 8)
+                    {
+                        if (arg1 == arg2)
+                        {
+                            intCode[resultIx] = 1;
+                        }
+                        else
+                        {
+                            intCode[resultIx] = 0;
+                        }
+
+                        i += 3;
+                    }
+                    else if (code == 99)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        throw new Exception();
+                    }
+                }
+
+                inputIndex++;
+                inputConsumed = false;
+            }
+
+            return arg1;
+        }
+
+        public static int ReverseInt(int num)
+        {
+            int result = 0;
+            while (num > 0)
+            {
+                result = result * 10 + num % 10;
+                num /= 10;
+            }
+            return result;
+        }
+
+
+        static IEnumerable<IEnumerable<T>>
+            GetPermutations<T>(IEnumerable<T> list, int length)
+        {
+            if (length == 1) return list.Select(t => new T[] { t });
+
+            return GetPermutations(list, length - 1)
+                .SelectMany(t => list.Where(e => !t.Contains(e)),
+                    (t1, t2) => t1.Concat(new T[] { t2 }));
+        }
+    }
+}
